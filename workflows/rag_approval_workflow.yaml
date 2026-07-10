@@ -1,0 +1,38 @@
+# Dify ワークフロー定義(参考). rag_agent の処理フローに対応。
+workflow:
+  name: rag-approval
+  nodes:
+    - id: start
+      type: start
+    - id: retrieve
+      type: knowledge-retrieval
+      config: { top_k: 3, score_threshold: 0.15 }
+    - id: gate
+      type: if-else
+      # 引用必須ゲート: 検索ヒットが閾値未満なら拒否パスへ
+      condition: "retrieve.max_score >= 0.15"
+    - id: answer
+      type: llm
+      config: { require_citation: true }
+    - id: refuse
+      type: template
+      config: { text: "該当する社内規程・FAQが見つかりませんでした。" }
+    - id: intent
+      type: classifier
+      classes: [qa, approval]
+    - id: approval
+      type: tool
+      tool: create_approval
+    - id: notify
+      type: tool
+      tool: notify_slack
+    - id: audit
+      type: code
+      # 全経路を監査ログに記録
+  edges:
+    - [start, retrieve]
+    - [retrieve, gate]
+    - [gate, answer, "true"]
+    - [gate, refuse, "false"]
+    - [intent, approval, "approval"]
+    - [approval, notify]

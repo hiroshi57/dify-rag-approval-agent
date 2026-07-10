@@ -1,0 +1,32 @@
+# Dify アプリ定義(エクスポート想定). 本リポの rag_agent はこの挙動のリファレンス実装。
+app:
+  name: 社内規程RAG + 承認エージェント
+  mode: agent-chat
+  description: 社内規程・FAQをRAG検索し、根拠(条番号)を引用して回答。承認申請も起票する。
+
+model:
+  provider: anthropic
+  name: claude-3-5-sonnet
+  completion_params:
+    temperature: 0.0   # 規程回答は決定的に
+
+dataset:
+  # Dify 内蔵ベクトルDBに docs/ を取込む
+  retrieval_model:
+    top_k: 3
+    score_threshold: 0.15   # これ未満は「該当なし」として回答拒否
+
+prompt:
+  # 差別化: 引用必須。出典がない場合は回答しない。
+  system: |
+    あなたは社内規程アシスタントです。以下を厳守してください。
+    1. 回答は必ず検索で得た規程・FAQの内容のみに基づくこと。
+    2. 回答末尾に必ず出典(規程名+条番号)を明記すること。
+    3. 根拠が見つからない場合は推測せず「該当する規程が見つかりませんでした」と答えること。
+    4. ユーザーが申請・承認を求めた場合は approval ツールを呼び出すこと。
+
+tools:
+  - name: create_approval
+    description: 承認申請を起票する
+  - name: notify_slack
+    description: Slackに通知する
