@@ -5,6 +5,8 @@ from .agent import QAAgent, Answer, Citation, REFUSAL
 from .approval import ApprovalStore, ApprovalRequest, detect_approval_intent
 from .audit import AuditLog, AuditEntry
 from .integrations import SlackNotifier
+from .policy import ApprovalPolicy, ApprovalRoute, extract_amount
+from .session import SessionStore, Session, Turn
 
 __all__ = [
     "DocChunk", "DocumentStore",
@@ -14,4 +16,6 @@ __all__ = [
     "ApprovalStore", "ApprovalRequest", "detect_approval_intent",
     "AuditLog", "AuditEntry",
     "SlackNotifier",
+    "ApprovalPolicy", "ApprovalRoute", "extract_amount",
+    "SessionStore", "Session", "Turn",
 ]

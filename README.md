@@ -26,11 +26,19 @@ Dify（LLM=Claude、内蔵ベクトルDB）を前提とし、本リポジトリ�
 | ② | Q&A チャットボット（引用必須） | `rag_agent/agent.py` + `retriever.py` |
 | ③ | Slack 通知連携 | `rag_agent/integrations/slack.py`（webhook 未設定時 dry-run） |
 
+## 全機能(MVP＋拡張)
+
+- ①ドキュメント取込 ②引用必須Q&A ③Slack通知（MVP）
+- **承認ルーティング**（`policy.py`）: 規程第4条に基づき金額で承認者を自動判定（5万円超→部長）
+- **マルチターン会話セッション**（`session.py`）
+- **実行可能な FastAPI サービス**（`serve/api.py`）: `/v1/chat` `/v1/approvals` `/v1/audit`
+
 ## クイックスタート
 
 ```bash
-python demo.py          # 取込→引用付きQ&A→拒否→承認フロー→監査ログ
-python -m pytest -q     # テスト(外部依存なし)
+python demo.py          # 取込→引用付きQ&A→拒否→承認ルーティング→承認フロー→監査ログ
+python -m pytest -q     # テスト18件(外部依存なし)
+uvicorn serve.api:app --reload   # Difyリファレンス実装のAPI起動
 ```
 
 ## 構成
