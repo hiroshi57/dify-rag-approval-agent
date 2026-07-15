@@ -33,6 +33,20 @@ Dify（LLM=Claude、内蔵ベクトルDB）を前提とし、本リポジトリ�
 - **マルチターン会話セッション**（`session.py`）
 - **実行可能な FastAPI サービス**（`serve/api.py`）: `/v1/chat` `/v1/approvals` `/v1/audit`
 
+## 本番構成（SQLite + HTMLレポート + Vite 2画面）
+
+- **DB**: `service/db.py`（SQLite）。文書チャンク＋承認申請、全クエリ tenant_id 強制フィルタ＝**テナント分離**
+- **API**: `service/api.py`（FastAPI）。docs(投入) / ask(引用必須QA) / approvals(金額ルーティング) / report(HTML)
+- **HTMLレポート**: `service/report_html.py`（承認状況レポート、XSSエスケープ）
+- **フロント**: `frontend/`（React+Vite）。**規程チャット**（引用必須・拒否表示）＋**承認コンソール**の2画面。ビルド不要は `frontend/standalone.html`
+- **CI**: `.github/workflows/ci.yml`
+
+```bash
+uvicorn service.api:app --reload
+cd frontend && npm install && npm run dev     # or: open frontend/standalone.html
+python -m pytest -q                            # テスト23件(DB/テナント分離/HTMLレポート/API E2E含む)
+```
+
 ## クイックスタート
 
 ```bash

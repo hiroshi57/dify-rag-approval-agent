@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>社内規程RAG+承認(スタンドアロン)</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body{font-family:system-ui,sans-serif;background:#f7f8fa;margin:0;padding:24px;color:#1a1a2e}
+    .wrap{max-width:720px;margin:0 auto} h1{color:#c0562b;font-size:22px}
+    .card{background:#fff;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+    .answer{background:#eefaf2;padding:10px;border-radius:8px;margin-top:8px}
+    .refusal{background:#fdeeee;padding:10px;border-radius:8px;margin-top:8px}
+    .citations{color:#5a6;font-size:13px} input{padding:6px;border:1px solid #ccd;border-radius:6px}
+    button.primary{background:#c0562b;color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;margin-top:8px}
+    nav button{margin-right:8px} .reason{color:#889;font-size:13px}
+  </style>
+</head>
+<body><div id="root"></div>
+<script type="text/babel" data-presets="react">
+  const ANSWER={answered:true,text:"第3条（締め日） 経費精算の締め日は毎月20日とする。",
+    citations:[{doc_id:"経費精算規程",section_id:"第3条"}]};
+  function App(){
+    const [tab,setTab]=React.useState("chat");
+    const [appr,setAppr]=React.useState(null);
+    return (<div className="wrap"><h1>社内規程RAG + 承認エージェント <small style={{fontSize:12,color:"#889"}}>(デモ)</small></h1>
+      <nav><button onClick={()=>setTab("chat")} disabled={tab==="chat"}>規程チャット</button>
+        <button onClick={()=>setTab("appr")} disabled={tab==="appr"}>承認コンソール</button></nav>
+      {tab==="chat"?(<div className="card"><h2>社内規程チャット(引用必須)</h2>
+        <input style={{width:"100%"}} defaultValue="経費精算の締め日は?"/>
+        <div className="answer"><p>{ANSWER.text}</p>
+          <div className="citations">出典: {ANSWER.citations.map(c=>c.doc_id+" "+c.section_id).join("、")}</div></div>
+      </div>):(<div className="card"><h2>承認申請</h2>
+        <input style={{width:"100%"}} defaultValue="出張費8万円を精算したい"/>
+        <button className="primary" onClick={()=>setAppr({req_id:"REQ-0001",required_approver:"部長",
+          reason:"80,000円は50,000円超のため部長承認が必要",status:"approved"})}>申請を起票</button>
+        {appr&&(<div><p>{appr.req_id}: <b>{appr.required_approver}</b> 承認 → {appr.status}</p>
+          <p className="reason">{appr.reason}</p></div>)}
+      </div>)}</div>);
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script></body></html>
