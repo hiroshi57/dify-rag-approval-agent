@@ -7,6 +7,9 @@ from .audit import AuditLog, AuditEntry
 from .integrations import SlackNotifier
 from .policy import ApprovalPolicy, ApprovalRoute, extract_amount
 from .session import SessionStore, Session, Turn
+from .staleness import (
+    RegulationRegistry, RegulationVersion, VersionDiff, StaleCitation, check_answer_staleness,
+)
 
 __all__ = [
     "DocChunk", "DocumentStore",
@@ -18,4 +21,6 @@ __all__ = [
     "SlackNotifier",
     "ApprovalPolicy", "ApprovalRoute", "extract_amount",
     "SessionStore", "Session", "Turn",
+    "RegulationRegistry", "RegulationVersion", "VersionDiff", "StaleCitation",
+    "check_answer_staleness",
 ]
