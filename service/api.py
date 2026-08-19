@@ -10,13 +10,23 @@
   未設定の場合は **開発用のオープンモード** で起動し、警告ログと
   `X-Auth-Mode: dev-open` レスポンスヘッダを返す。本番では必ず設定すること。
 """
-from __future__ import annotations
-
 import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
+
+# NOTE: 本モジュールで `from __future__ import annotations` を使ってはいけない。
+# FastAPI は型注釈を **モジュールのグローバル名前空間** で解決するため、
+# 遅延評価された注釈 + 関数ローカル import の組み合わせだと `Response` 等の
+# 特殊型を解決できず、依存注入すべき引数をクエリパラメータと誤認して 422 になる。
+try:
+    from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+    from fastapi.responses import HTMLResponse
+    from pydantic import BaseModel, Field
+    FASTAPI_AVAILABLE = True
+except ImportError:                              # pragma: no cover - 環境依存
+    FASTAPI_AVAILABLE = False
 
 from rag_agent import (
     ApprovalError, ApprovalPolicy, ApprovalStore, AuditLog, DocumentStore, QAAgent,
@@ -109,11 +119,11 @@ class AppContext:
 
 
 def create_app(context: Optional[AppContext] = None):
-    from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
-    from fastapi.responses import HTMLResponse
-    from pydantic import BaseModel, Field
+    if not FASTAPI_AVAILABLE:                    # pragma: no cover - 環境依存
+        raise RuntimeError(
+            "FastAPI が未インストールです。`pip install -r requirements.txt` を実行してください。")
 
-    ctx = context or AppContext()
+    ctx = context if context is not None else AppContext()
     app = FastAPI(title="Dify RAG Approval Agent", version="1.1.0")
     app.state.ctx = ctx
 
@@ -278,10 +288,8 @@ def create_app(context: Optional[AppContext] = None):
 
 
 def _build_default_app():
-    """既定アプリ. 失敗は握り潰さず、原因を明示して落とす(FastAPI 未導入時のみ None)."""
-    try:
-        import fastapi  # noqa: F401
-    except ImportError:
+    """既定アプリ. 失敗は握り潰さず伝播させる(FastAPI 未導入時のみ None を返す)."""
+    if not FASTAPI_AVAILABLE:                    # pragma: no cover - 環境依存
         logger.warning("FastAPI 未インストールのため service.api:app は生成されません "
                        "(`pip install -r requirements.txt`)")
         return None

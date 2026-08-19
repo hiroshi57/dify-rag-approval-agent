@@ -111,8 +111,10 @@ class ApprovalStore:
                  audit: Optional[AuditLog] = None,
                  id_factory: Optional[Callable[[], str]] = None) -> None:
         self._items: Dict[str, ApprovalRequest] = {}
-        self.notifier = notifier or SlackNotifier()
-        self.audit = audit or AuditLog()
+        # NOTE: `x or Default()` は使わない。AuditLog は __len__ を持ち、
+        # 空ログが falsy になるため「渡した監査ログが黙って捨てられる」事故になる。
+        self.notifier = notifier if notifier is not None else SlackNotifier()
+        self.audit = audit if audit is not None else AuditLog()
         self._id_factory = id_factory or (lambda: f"REQ-{uuid.uuid4().hex[:10].upper()}")
 
     # --- 内部 ---

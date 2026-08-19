@@ -94,7 +94,8 @@ class QAAgent:
         if not 0.0 <= max_out_of_scope_ratio <= 1.0:
             raise ValueError("max_out_of_scope_ratio は 0..1 で指定してください")
         self.retriever = retriever
-        self.audit = audit or AuditLog()
+        # `audit or AuditLog()` は空ログ(falsy)を取り違えるため使わない
+        self.audit = audit if audit is not None else AuditLog()
         self.min_score = min_score
         self.max_out_of_scope_ratio = max_out_of_scope_ratio
         self.registry = registry
