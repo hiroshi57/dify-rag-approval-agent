@@ -1,3 +1,3 @@
-from .slack import SlackNotifier
+from .slack import SlackNotifier, NotifyResult
 
-__all__ = ["SlackNotifier"]
+__all__ = ["SlackNotifier", "NotifyResult"]

@@ -1,11 +1,6 @@
-import os
-import sys
+import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import pytest  # noqa: E402
-
-from rag_agent import RegulationRegistry, check_answer_staleness  # noqa: E402
+from rag_agent import Citation, RegulationRegistry, check_answer_staleness
 
 
 def _registry():
@@ -18,18 +13,16 @@ def _registry():
 
 def test_diff_detects_changes():
     d = _registry().diff("経費精算規程", "v1", "v2")
-    assert d.changed == ["第3条"]       # 締め日変更
+    assert d.changed == ["第3条"]
     assert d.added == ["第5条"]
     assert d.removed == []
+    assert d.is_empty is False
 
 
 def test_stale_when_cited_changed_section():
     r = _registry()
-    # v1 の第3条を引用 -> v2で改定済み -> 陳腐化
     assert r.is_stale("経費精算規程", "第3条", "v1") is True
-    # v1 の第4条は不変 -> 陳腐化なし
     assert r.is_stale("経費精算規程", "第4条", "v1") is False
-    # 最新版の引用は陳腐化なし
     assert r.is_stale("経費精算規程", "第3条", "v2") is False
 
 
@@ -37,17 +30,45 @@ def test_unknown_version_is_stale():
     assert _registry().is_stale("経費精算規程", "第3条", "v0") is True
 
 
-def test_check_answer_staleness_lists_stale():
+def test_citation_of_nonexistent_section_is_stale():
+    assert _registry().is_stale("経費精算規程", "第99条", "v1") is True
+
+
+def test_removed_section_is_stale():
+    r = RegulationRegistry()
+    r.register("d", "v1", {"第1条": "a"})
+    r.register("d", "v2", {})
+    assert r.is_stale("d", "第1条", "v1") is True
+
+
+def test_check_answer_staleness_accepts_dicts_and_citations():
     r = _registry()
     stale = check_answer_staleness(r, [
         {"doc_id": "経費精算規程", "section_id": "第3条", "version": "v1"},
         {"doc_id": "経費精算規程", "section_id": "第4条", "version": "v1"},
     ])
-    assert len(stale) == 1
-    assert stale[0].section_id == "第3条"
-    assert stale[0].latest_version == "v2"
+    assert len(stale) == 1 and stale[0].latest_version == "v2"
+
+    stale2 = check_answer_staleness(r, [
+        Citation(doc_id="経費精算規程", section_id="第3条", title="締め日", version="v1")])
+    assert len(stale2) == 1
+
+
+def test_duplicate_version_is_rejected():
+    r = _registry()
+    with pytest.raises(ValueError):
+        r.register("経費精算規程", "v2", {})
 
 
 def test_diff_missing_version_raises():
     with pytest.raises(KeyError):
         _registry().diff("経費精算規程", "v1", "v9")
+
+
+def test_diff_unknown_document_raises():
+    with pytest.raises(KeyError):
+        _registry().diff("存在しない規程", "v1", "v2")
+
+
+def test_versions_are_ordered_by_registration():
+    assert _registry().versions("経費精算規程") == ["v1", "v2"]

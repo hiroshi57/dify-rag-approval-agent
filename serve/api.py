@@ -1,81 +1,47 @@
-"""実行可能な FastAPI サービス(Difyのリファレンス実装).
+"""[非推奨] 旧エントリポイント. 実体は service.api に統合済み.
 
-`uvicorn serve.api:app --reload` で起動。QA(引用必須) / 承認 / 監査 を提供。
-FastAPI 未インストールでも rag_agent コアはテスト可能(この import は遅延)。
+旧 `serve/api.py` と `service/api.py` は QA・承認・監査のロジックを二重に持ち、
+片方だけ修正されて挙動が食い違う状態だった(DRY 違反)。
+現在は service.api を唯一の実装とし、本モジュールは
+
+  - docs/ のサンプル規程をデモ用テナントへ自動投入する
+  - 後方互換のため `app` を公開する
+
+だけの薄いシムである。新規利用は `uvicorn service.api:app` を使うこと。
 """
 from __future__ import annotations
 
+import logging
 import os
+import warnings
 
-from rag_agent import (
-    DocumentStore, ingest_dir, Retriever, QAAgent, AuditLog,
-    ApprovalStore, detect_approval_intent, SlackNotifier,
-)
-from rag_agent.policy import ApprovalPolicy, extract_amount
-from rag_agent.session import SessionStore
+from rag_agent import ingest_dir
+from service.api import AppContext, create_app as _create_service_app
+
+logger = logging.getLogger(__name__)
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
-
-AUDIT = AuditLog()
-STORE = DocumentStore()
-STORE.extend(ingest_dir(DOCS))
-AGENT = QAAgent(Retriever(STORE), audit=AUDIT)
-APPROVALS = ApprovalStore(notifier=SlackNotifier(), audit=AUDIT)
-POLICY = ApprovalPolicy()
-SESSIONS = SessionStore()
+DEMO_TENANT = os.getenv("RAG_DEMO_TENANT", "demo")
 
 
-def create_app():  # pragma: no cover
-    from fastapi import FastAPI, HTTPException
-    from pydantic import BaseModel
-
-    app = FastAPI(title="dify-rag-approval-agent", version="0.2.0")
-
-    class ChatReq(BaseModel):
-        message: str
-        actor: str = "anonymous"
-        session_id: str | None = None
-
-    class ApprovalReq(BaseModel):
-        requester: str
-        title: str
-        detail: str
-
-    @app.post("/v1/chat")
-    def chat(req: ChatReq):
-        session = SESSIONS.get(req.session_id) if req.session_id else SESSIONS.create(req.actor)
-        session.add("user", req.message)
-        # 申請意図なら承認ルーティングを提示
-        if detect_approval_intent(req.message):
-            amount = extract_amount(req.message)
-            route = POLICY.route(amount)
-            reply = f"承認申請として受け付け可能です。{route.reason}(承認者: {route.required_approver})"
-            session.add("assistant", reply)
-            return {"session_id": session.id, "type": "approval_suggestion",
-                    "amount": amount, "required_approver": route.required_approver, "text": reply}
-        ans = AGENT.ask(req.message, actor=req.actor)
-        session.add("assistant", ans.text)
-        return {"session_id": session.id, "type": "answer", **ans.as_dict()}
-
-    @app.post("/v1/approvals")
-    def create_approval(req: ApprovalReq):
-        r = APPROVALS.create(req.requester, req.title, req.detail)
-        route = POLICY.route(extract_amount(req.detail))
-        APPROVALS.submit(r.id)
-        return {"id": r.id, "status": r.status, "required_approver": route.required_approver}
-
-    @app.get("/v1/audit")
-    def audit():
-        return {"entries": [e.as_dict() for e in AUDIT.entries]}
-
-    @app.get("/healthz")
-    def healthz():
-        return {"status": "ok", "chunks": len(STORE)}
-
-    return app
+def create_app(context: AppContext | None = None):
+    warnings.warn(
+        "serve.api は非推奨です。service.api:app を使用してください。",
+        DeprecationWarning, stacklevel=2)
+    ctx = context or AppContext()
+    chunks = ingest_dir(DOCS)
+    ctx.db.add_chunks(DEMO_TENANT, chunks)
+    logger.info("デモ用テナント %s に %d チャンクを投入しました", DEMO_TENANT, len(chunks))
+    return _create_service_app(ctx)
 
 
-try:  # pragma: no cover
-    app = create_app()
-except Exception:
-    app = None
+def _build_default_app():
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        logger.warning("FastAPI 未インストールのため serve.api:app は生成されません")
+        return None
+    return create_app()
+
+
+app = _build_default_app()
